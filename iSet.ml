@@ -18,15 +18,133 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *)
 
-type ('a * 'a) t =
+let (+.) x y = 
+  if x = max_int
+  || y = max_int
+  || x > max_int - y
+  || y > max_int - x
+  then max_int
+  else x + y
+
+(* lewe poddrzewo * przedział * prawe poddrzewo * wysokość drzewa * below *)
+type t =
   | Empty
-  | Node of ('a * 'a) t * ('a * 'a) * ('a * 'a) t * int
+  | Node of t * ('a * 'a) * t * int * int
+
+let empty = Empty
+
+let is_empty s =
+  s = Empty
+
+let belong x (a, b) =
+  (x >= a && x <= b)
 
 let height = function
-  | Node (_, _, _, h) -> h
+  | Node (_, _, _, h, _) -> h
+  | Empty -> 0
+  
+let range (a, b) = 
+  b - a + 1
+
+let mem x s =
+  let rec loop = function
+    | Node (l, (a, b) as p, r, _, _) ->
+      if belong x p then true
+      else if x < a then loop l
+      else if x > b then loop r
+    | Empty -> false
+  in
+  loop s
+
+let bel = function
+  | Node (_, p, _, _, x) -> x +. (range p)
   | Empty -> 0
 
-let make l k r = Node (l, k, r, max (height l) (height r) + 1)
+let make l p r =
+  Node (l, p, r, max (height l) (height r) + 1, (bel l +. bel r))
+
+let below x s =
+  let rec loop acc = function
+    | Node (l, p, r, _, _) ->
+      if belong x (a, b) then
+        acc +. (bel l +. range (a, x))
+      else if x < a then
+        loop acc l
+      else (* x > b *)
+        let acc = bel l +. range p in
+        loop acc r
+    | Empty -> acc
+  in
+  loop 0 s
+
+let iter f s =
+  let rec loop = function
+    | Empty -> ()
+    | Node (l, p, r,_ , _) -> loop l; f p; loop r
+  in
+  loop s
+
+let fold f s acc =
+  let rec loop acc = function
+    | Empty -> acc
+    | Node (l, p, r, _, _) ->
+      loop (f p (loop acc l)) r
+  in
+  loop acc s
+
+let elements s = 
+  let rec loop acc = function
+    | Empty -> acc
+    | Node(l, p, r, _, _) ->
+          loop (p :: loop acc r) l in
+  loop [] s
+
+let split x s =
+  let rec loop accl accr = function
+    | Empty ->
+      (Empty, false, Empty)
+    | Node (l, (a, b) as p, r, h, _) ->
+      if belong x p then
+        
+  
+  
+  
+  
+  
+  
+  
+let split x s =
+  let rec loop x = function
+    | Empty ->
+        (Empty, false, Empty)
+    | Node (l, v, r, _) ->
+      if x = v then
+        (l, true, r)
+      else if x < v then
+        let (ll, pres, rl) = loop x l in (ll, pres, join rl v r)
+      else
+        let (lr, pres, rr) = loop x r in (join l v lr, pres, rr)
+  in
+  loop x s
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+
 
 let bal l k r =
   let hl = height l in
@@ -71,11 +189,6 @@ let merge t1 t2 =
       let k = min_elt t2 in
       bal t1 k (remove_min_elt t2)
 
-let empty = Empty
-
-let is_empty s = 
-  s = Empty
-
 let rec add (x, y) s =
   match s with
   | Node (l, k, r, h) ->
@@ -97,23 +210,6 @@ let rec join l v r =
       if rh > lh + 2 then bal (join l v rl) rv rr else
       make l v r
 
-let split x s =
-  let rec loop x = function
-    | Empty ->
-        (Empty, false, Empty)
-    | Node (l, v, r, _) ->
-      if x = v then (l, true, r)
-      else if x < v then
-        let (ll, pres, rl) = loop x l in (ll, pres, join rl v r)
-      else
-        let (lr, pres, rr) = loop x r in (join l v lr, pres, rr)
-  in
-(*****************************************************************************)
-  loop x s
-  (*let setl, pres, setr = loop x s in
-  setl, pres, setr(*?*)*)
-(*****************************************************************************)
-
 let remove (x, y) s =
   let rec loop = function
     | Node (l, k, r, _) ->
@@ -122,33 +218,3 @@ let remove (x, y) s =
       else bal l k (loop r)
     | Empty -> Empty in
   loop s
-
-let mem x s =
-  let rec loop = function
-    | Node (l, k, r, _) ->
-      if x = k then true
-      else if x < k then loop l
-      else if x > k then loop r
-        (* c = 0 || loop (if c < 0 then l else r) *)
-    | Empty -> false in
-  loop s
-
-let iter f s =
-  let rec loop = function
-    | Empty -> ()
-    | Node (l, k, r, _) -> loop l; f k; loop r in
-  loop s
-
-let fold f s acc =
-  let rec loop acc = function
-    | Empty -> acc
-    | Node (l, k, r, _) ->
-          loop (f k (loop acc l)) r in
-  loop acc s
-
-let elements s = 
-  let rec loop acc = function
-    | Empty -> acc
-    | Node(l, k, r, _) ->
-          loop (k :: loop acc r) l in
-  loop [] s
