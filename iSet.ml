@@ -126,8 +126,8 @@ let rec bal s =
     | Empty -> assert false
     else Node (l, p, r, max hl hr + 1)
   | Empty -> s
-(*
-let join_simple (a, b) s =
+  
+let add_simple (a, b) s =
   match s with
   | Node (_, (a1, b1), _, _, _) ->
     if a > b1 then
@@ -135,92 +135,56 @@ let join_simple (a, b) s =
     else if b < a1 then
       bal (make empty (a, b) s)
     else assert false
-*)
-    (* join *)
+    
+let rec join l p r =
+  match (l, r) with
+  | (Empty, _) -> add_simple p r
+  | (_, Empty) -> add_simple p l
+  | (Node(ll, lp, lr, lh, _), Node(rl, rp, rr, rh, _)) ->
+      if lh > rh + 2 then bal ll lp (join lr p r)
+      else if rh > lh + 2 then bal (join l p rl) rp rr
+      else make l p r
 
+let rec min_elt = function
+  | Node (Empty, p, _, _) -> p
+  | Node (l, _, _, _) -> min_elt l
+  | Empty -> raise Not_found
+
+let rec remove_min_elt = function
+  | Node (Empty, _, r, _) -> r
+  | Node (l, p, r, _) -> bal (remove_min_elt l) p r
+  | Empty -> invalid_arg "ISet.remove_min_elt"
+
+let merge s1 s2 =
+  match s1, s2 with
+  | Empty, _ -> s2
+  | _, Empty -> s1
+  | _ ->
+      let p = min_elt t2 in
+      bal t1 p (remove_min_elt t2)
+  
 let split x s =
   let rec loop = function
     | Empty ->
       (Empty, false, Empty)
     | Node (l, (a, b) as p, r, h, _) ->
       if belong x p then
-        (if a = x then l else bal (make l (a, x - 1) empty),
+        (if a = x then l else add_simple (a, x - 1) l,
         true,
-        if b = x then r else bal (make empty (x + 1, b) r)
+        if b = x then r else add_simple (x + 1, b) r)
       else if x < a then
-        let (ll, pres, rl) = loop x l in (ll, pres, join rl v r)
+        let (ll, pres, rl) = loop x l in (ll, pres, join rl p r)
       else (* x > b *) then
-        let (lr, pres, rr) = loop x r in (join l v lr, pres, rr)
+        let (lr, pres, rr) = loop x r in (join l p lr, pres, rr)
   in
   loop x s
   
-  
-  
-  
-
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-
-(*****************************************************************************)
-let rec min_elt = function
-  | Node (Empty, k, _, _) -> k
-  | Node (l, _, _, _) -> min_elt l
-  | Empty -> raise Not_found
-
-let rec remove_min_elt = function
-  | Node (Empty, _, r, _) -> r
-  | Node (l, k, r, _) -> bal (remove_min_elt l) k r
-  | Empty -> invalid_arg "PSet.remove_min_elt"
-
-let merge t1 t2 =
-  match t1, t2 with
-  | Empty, _ -> t2
-  | _, Empty -> t1
-  | _ ->
-      let k = min_elt t2 in
-      bal t1 k (remove_min_elt t2)
-
-let rec add (x, y) s =
-  match s with
-  | Node (l, k, r, h) ->
-    if x = k then Node (l, x, r, h)
-    else if x < k then
-      let nl = add x l in
-      bal nl k r
-    else
-      let nr = add x r in
-      bal l k nr
-  | Empty -> Node (Empty, x, Empty, 1)
-
-let rec join l v r =
-  match (l, r) with
-  | (Empty, _) -> add v r
-  | (_, Empty) -> add v l
-  | (Node(ll, lv, lr, lh), Node(rl, rv, rr, rh)) ->
-      if lh > rh + 2 then bal ll lv (join lr v r) else
-      if rh > lh + 2 then bal (join l v rl) rv rr else
-      make l v r
-
 let remove (x, y) s =
-  let rec loop = function
-    | Node (l, k, r, _) ->
-      if x = k then merge l r
-      else if x < k then bal (loop l) k r
-      else bal l k (loop r)
-    | Empty -> Empty in
-  loop s
+  let (l, _, _) = split x s in
+  let (_, _, r) = split y s in
+  merge l r
+
+let add (x, y) as p s =
+  let (l, _, _) = split x s in
+  let (_, _, r) = split y s in
+  join l p r
