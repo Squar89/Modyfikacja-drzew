@@ -126,7 +126,7 @@ let rec bal s =
     | Empty -> assert false
     else Node (l, p, r, max hl hr + 1)
   | Empty -> s
-
+(*
 let join_simple (a, b) s =
   match s with
   | Node (_, (a1, b1), _, _, _) ->
@@ -135,7 +135,8 @@ let join_simple (a, b) s =
     else if b < a1 then
       bal (make empty (a, b) s)
     else assert false
-(* join *)
+*)
+    (* join *)
 
 let split x s =
   let rec loop = function
@@ -143,9 +144,9 @@ let split x s =
       (Empty, false, Empty)
     | Node (l, (a, b) as p, r, h, _) ->
       if belong x p then
-        (if a = x then l else join_simple (a, x - 1) l,
+        (if a = x then l else bal (make l (a, x - 1) empty),
         true,
-        if b = x then r else join_simple (x + 1, b) r)
+        if b = x then r else bal (make empty (x + 1, b) r)
       else if x < a then
         let (ll, pres, rl) = loop x l in (ll, pres, join rl v r)
       else (* x > b *) then
