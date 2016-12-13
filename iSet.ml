@@ -99,30 +99,56 @@ let elements s =
           loop (p :: loop acc r) l in
   loop [] s
 
+let rec bal s =
+  match s with
+  | Node (l, p, r, _, _) ->
+    let hl = height l in
+    let hr = height r in
+    if hl > hr + 2 then
+    match l with
+    | Node (ll, lp, lr, _, _) ->
+      if height ll >= height lr then bal (make ll lp (make lr p r))
+      else
+        (match lr with
+        | Node (lrl, lrp, lrr, _, _) ->
+            bal (make (make ll lp lrl) lrp (make lrr p r))
+        | Empty -> assert false)
+    | Empty -> assert false
+    else if hr > hl + 2 then
+    match r with
+    | Node (rl, rp, rr, _, _) ->
+      if height rr >= height rl then bal (make (make l p rl) rp rr)
+      else
+        (match rl with
+        | Node (rll, rlp, rlr, _, _) ->
+          make (make l p rll) rlp (make rlr rp rr)
+        | Empty -> assert false)
+    | Empty -> assert false
+    else Node (l, p, r, max hl hr + 1)
+  | Empty -> s
+
+let join_simple (a, b) s =
+  match s with
+  | Node (_, (a1, b1), _, _, _) ->
+    if a > b1 then
+      bal (make s (a, b) empty)
+    else if b < a1 then
+      bal (make empty (a, b) s)
+    else assert false
+(* join *)
+
 let split x s =
-  let rec loop accl accr = function
+  let rec loop = function
     | Empty ->
       (Empty, false, Empty)
     | Node (l, (a, b) as p, r, h, _) ->
       if belong x p then
-        
-  
-  
-  
-  
-  
-  
-  
-let split x s =
-  let rec loop x = function
-    | Empty ->
-        (Empty, false, Empty)
-    | Node (l, v, r, _) ->
-      if x = v then
-        (l, true, r)
-      else if x < v then
+        (if a = x then l else join_simple (a, x - 1) l,
+        true,
+        if b = x then r else join_simple (x + 1, b) r)
+      else if x < a then
         let (ll, pres, rl) = loop x l in (ll, pres, join rl v r)
-      else
+      else (* x > b *) then
         let (lr, pres, rr) = loop x r in (join l v lr, pres, rr)
   in
   loop x s
@@ -130,6 +156,11 @@ let split x s =
   
   
   
+
+  
+  
+  
+  
   
   
   
@@ -144,33 +175,7 @@ let split x s =
   
   
 
-
-
-let bal l k r =
-  let hl = height l in
-  let hr = height r in
-  if hl > hr + 2 then
-    match l with
-    | Node (ll, lk, lr, _) ->
-        if height ll >= height lr then make ll lk (make lr k r)
-        else
-          (match lr with
-          | Node (lrl, lrk, lrr, _) ->
-              make (make ll lk lrl) lrk (make lrr k r)
-          | Empty -> assert false)
-    | Empty -> assert false
-  else if hr > hl + 2 then
-    match r with
-    | Node (rl, rk, rr, _) ->
-        if height rr >= height rl then make (make l k rl) rk rr
-        else
-          (match rl with
-          | Node (rll, rlk, rlr, _) ->
-              make (make l k rll) rlk (make rlr rk rr)
-          | Empty -> assert false)
-    | Empty -> assert false
-  else Node (l, k, r, max hl hr + 1)
-
+(*****************************************************************************)
 let rec min_elt = function
   | Node (Empty, k, _, _) -> k
   | Node (l, _, _, _) -> min_elt l
