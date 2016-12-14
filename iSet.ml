@@ -1,3 +1,6 @@
+(*  Autor - Jakub Wróblewski 386401 gr. 5
+    Recenzent - Karol Waszczuk 386488 gr. 2
+*)
 (*
  * ISet - Interval sets
  * Copyright (C) 1996-2003 Xavier Leroy, Nicolas Cannasse, Markus Mottl, Jacek Chrzaszcz, Jakub Wróblewski
@@ -24,11 +27,10 @@
     intervals can be stored as single elements. Intervals stored in the
     set are disjoint.
 *)
-(*  Autor - Jakub Wróblewski 386401
-    Recenzent - Karol Waszczuk ?????? *)
+
 
 (* funkcja modyfikująca dodawanie, zapobiega wyjściu poza max_int *)
-let (+.) x y = 
+let (+.) x y =
   if x < 0 || y < 0 then x + y
   else  if x = max_int
     || y = max_int
@@ -59,8 +61,8 @@ let height = function
   | Empty -> 0
 
 (* funkcja zwracająca liczbę wartości danego przedziału *)
-let range (a, b) = 
-  b +. (a * (-1)) +. 1
+let range (a, b) =
+  if b - a + 1 <= 0 then max_int else b - a + 1
 
 (* funkcja zwracająca liczbę wartości danego drzewa *)
 let bel = function
@@ -93,7 +95,7 @@ let below x s =
       else if x < a then
         loop acc l
       else (* x > b *)
-        loop (acc +. bel l +. range p) r
+        loop (acc +. (bel l +. range p)) r
     | Empty -> acc
   in
   loop 0 s
@@ -193,7 +195,7 @@ let split x s =
       (Empty, false, Empty)
     | Node (l, ((a, b) as p), r, _, _) ->
       if belong x p then
-        let lesser = 
+        let lesser =
           if a = x then l else add_simple (a, x - 1) l in
         let greater =
           if b = x then r else add_simple (x + 1, b) r in
@@ -252,7 +254,7 @@ let fold f s acc =
   loop acc s
 
 (* zwraca listę przedziałów drzewa w rosnącym porządku *)
-let elements s = 
+let elements s =
   let rec loop acc = function
     | Empty -> acc
     | Node(l, p, r, _, _) ->
