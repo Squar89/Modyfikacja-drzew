@@ -1,6 +1,6 @@
 (*
- * PSet - Polymorphic sets
- * Copyright (C) 1996-2003 Xavier Leroy, Nicolas Cannasse, Markus Mottl
+ * ISet - Interval sets
+ * Copyright (C) 1996-2003 Xavier Leroy, Nicolas Cannasse, Markus Mottl, Jacek Chrzaszcz, Jakub Wróblewski
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -18,15 +18,28 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *)
 
+(** Interval Set.
+
+    This is an interval set, i.e. a set of integers, where large
+    intervals can be stored as single elements. Intervals stored in the
+    set are disjoint.
+*)
+(*  Autor - Jakub Wróblewski 386401
+    Recenzent - Karol Waszczuk ?????? *)
+
+(* funkcja modyfikująca dodawanie, zapobiega wyjściu poza max_int *)
 let (+.) x y = 
-  if x = max_int
-  || y = max_int
-  || x > max_int - y
-  || y > max_int - x
-  then max_int
+  if x < 0 || y < 0 then x + y
+  else  if x = max_int
+    || y = max_int
+    || x > max_int - y
+    || y > max_int - x
+    then max_int
   else x + y
 
-(* lewe poddrzewo * przedział * prawe poddrzewo * wysokość drzewa * below *)
+(* typ drzewa, składający się z:
+ * lewego poddrzewa * domkniętego przedziału * prawego poddrzewo *
+ * wysokości drzewa * liczby wartości w przedziałach poddrzew danego drzewa *)
 type t =
   | Empty
   | Node of t * (int * int) * t * int * int
@@ -36,15 +49,28 @@ let empty = Empty
 let is_empty s =
   s = Empty
 
+(* funkcja sprawdzająca czy x zawiera się w przedziale [a, b] *)
 let belong x (a, b) =
   (x >= a && x <= b)
 
+(* funkcja zwracająca wysokość danego drzewa *)
 let height = function
   | Node (_, _, _, h, _) -> h
   | Empty -> 0
-  
+
+(* funkcja zwracająca liczbę wartości danego przedziału *)
 let range (a, b) = 
-  b - a + 1
+  b +. (a * (-1)) +. 1
+
+(* funkcja zwracająca liczbę wartości danego drzewa *)
+let bel = function
+  | Node (_, p, _, _, x) -> x +. (range p)
+  | Empty -> 0
+
+(* funkcja tworząca drzewo z dwóch poddrzew i przedziału *)
+(* zawsze zachodzi warunek l < p < r *)
+let make l p r =
+  Node (l, p, r, max (height l) (height r) + 1, (bel l +. bel r))
 
 let mem x s =
   let rec loop = function
@@ -56,13 +82,6 @@ let mem x s =
   in
   loop s
 
-let bel = function
-  | Node (_, p, _, _, x) -> x +. (range p)
-  | Empty -> 0
-
-let make l p r =
-  Node (l, p, r, max (height l) (height r) + 1, (bel l +. bel r))
-
 let below x s =
   let rec loop acc = function
     | Node (l, ((a, b) as p), r, _, _) ->
@@ -71,33 +90,10 @@ let below x s =
       else if x < a then
         loop acc l
       else (* x > b *)
-        let acc = bel l +. range p in
-        loop acc r
+        loop (acc +. (bel l) +. range p) r
     | Empty -> acc
   in
   loop 0 s
-
-let iter f s =
-  let rec loop = function
-    | Empty -> ()
-    | Node (l, p, r,_ , _) -> loop l; f p; loop r
-  in
-  loop s
-
-let fold f s acc =
-  let rec loop acc = function
-    | Empty -> acc
-    | Node (l, p, r, _, _) ->
-      loop (f p (loop acc l)) r
-  in
-  loop acc s
-
-let elements s = 
-  let rec loop acc = function
-    | Empty -> acc
-    | Node(l, p, r, _, _) ->
-          loop (p :: loop acc r) l in
-  loop [] s
 
 let rec bal s =
   match s with
@@ -153,8 +149,18 @@ let rec min_elt = function
 
 let rec remove_min_elt = function
   | Node (Empty, _, r, _, _) -> r
-  | Node (l, p, r, _, _) -> bal ( make (remove_min_elt l) p r)
+  | Node (l, p, r, _, _) -> bal (make (remove_min_elt l) p r)
   | Empty -> invalid_arg "ISet.remove_min_elt"
+
+let rec max_elt = function
+  | Node (_, p, Empty, _, _) -> p
+  | Node (_, _, r, _, _) -> max_elt r
+  | Empty -> raise Not_found
+
+let rec remove_max_elt = function
+  | Node (l, _, Empty, _, _) -> l
+  | Node (l, p, r, _, _) -> bal (make l p (remove_max_elt r))
+  | Empty -> invalid_arg "ISet.remove_max_elt"
 
 let merge s1 s2 =
   match s1, s2 with
@@ -168,7 +174,7 @@ let split x s =
   let rec loop = function
     | Empty ->
       (Empty, false, Empty)
-    | Node (l, ((a, b) as p), r, h, _) ->
+    | Node (l, ((a, b) as p), r, _, _) ->
       if belong x p then
         let lesser = 
           if a = x then l else add_simple (a, x - 1) l in
@@ -188,6 +194,45 @@ let remove (x, y) s =
   merge l r
 
 let add (x, y) s =
-  let (l, _, _) = split x s in
-  let (_, _, r) = split y s in
-  join l (x, y) r
+  let fix_intervals_left (l, (x, y), r) =
+    if is_empty l then bal (make l (x, y) r)
+    else
+      let (a, b) = max_elt l in
+      if b +. 1 = x then bal (make (remove_max_elt l) (a, y) r)
+      else bal (make l (x, y) r)
+  in
+  let fix_intervals_right l (x, y) r =
+    if is_empty r then (l, (x, y), r)
+    else
+      let (a, b) = min_elt r in
+      if y +. 1 = a then (l, (x, b), (remove_min_elt r))
+      else (l, (x, y), r)
+  in
+  match s with
+  | Empty -> make empty (x, y) empty
+  | _ ->
+    let (l, _, _) = split x s in
+    let (_, _, r) = split y s in
+    fix_intervals_left (fix_intervals_right l (x, y) r)
+
+let iter f s =
+  let rec loop = function
+    | Empty -> ()
+    | Node (l, p, r,_ , _) -> loop l; f p; loop r
+  in
+  loop s
+
+let fold f s acc =
+  let rec loop acc = function
+    | Empty -> acc
+    | Node (l, p, r, _, _) ->
+      loop (f p (loop acc l)) r
+  in
+  loop acc s
+
+let elements s = 
+  let rec loop acc = function
+    | Empty -> acc
+    | Node(l, p, r, _, _) ->
+          loop (p :: loop acc r) l in
+  loop [] s
