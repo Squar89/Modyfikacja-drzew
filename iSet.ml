@@ -3,7 +3,7 @@
 *)
 (*
  * ISet - Interval sets
- * Copyright (C) 1996-2003 Xavier Leroy, Nicolas Cannasse, Markus Mottl, Jacek Chrzaszcz, Jakub Wróblewski
+ * Copyright (C) 1996-2016 Xavier Leroy, Nicolas Cannasse, Markus Mottl, Jacek Chrzaszcz, Jakub Wróblewski
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -260,3 +260,19 @@ let elements s =
     | Node(l, p, r, _, _) ->
           loop (p :: loop acc r) l in
   loop [] s
+;;
+(* TESTY *)
+(*
+(* testowałem głównie randomizowanymi sprawdzarkami *)
+let a = empty;;
+let a = (add (min_int, max_int) a);;
+let x = below 700 a;;
+assert (x = max_int);;
+let a = empty;;
+let a = (add (min_int, 0) a);;
+let x = below 700 a;;
+assert (x = max_int);;
+let a = (add (0, max_int) a);;
+let x = below 700 a;;
+assert (x = max_int);;
+*)
